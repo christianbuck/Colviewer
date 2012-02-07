@@ -7,8 +7,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_gtkcairo import FigureCanvasGTKCairo as FigureCanvas
 #from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
-from collections import Counter
-from numpy import arange, sin, pi
+from collections import Counter, defaultdict
 from pylab import cm
 from itertools import izip
 
@@ -31,6 +30,7 @@ class ColViewer:
 
     def __init__(self, coldir=None):
         self.equalize = False
+        self.equalize_cutoff = 20
         self.data_binary = True
         self.n_values = 2
         self.n_bins = 10
@@ -75,7 +75,8 @@ class ColViewer:
 
     def update_barchart(self):
         self.histogram()
-        self.plot_barchart(self.data, self.bar_ax)
+        self.plot_barchart()
+        self.plot_errorbars()
         self.bar_canvas.draw()
 
     def fill_filelist(self):
@@ -100,8 +101,10 @@ class ColViewer:
     ### Plotting ###
     def init_barchart(self):
         fig = Figure(facecolor='w')
-        ax = fig.add_subplot(111,axisbg=NiceColors.lightgrey)
+        ax = fig.add_subplot(211,axisbg=NiceColors.lightgrey)
         self.bar_ax = ax
+
+        self.err_ax = fig.add_subplot(212,axisbg=NiceColors.lightgrey)
         #self.plot_barchart(data, ax)
 
         self.bar_canvas = FigureCanvas(fig)  # a gtk.DrawingArea
@@ -132,50 +135,41 @@ class ColViewer:
             zip(locations[:-1], locations[1:]) )
 
     def get_equalize_multiplicator(self):
-        return [1/float(c) if c>0 else 0 for c in self.col_counts]
+        return [1./float(c) if c > self.equalize_cutoff
+                else 0. for c in self.col_counts]
 
-    def plot_barchart(self, data, ax):
-        ax.cla()
+    def plot_errorbars(self):
+        #print len(locations) , len(self.cols)
+        self.err_ax.cla()
+        assert len(self.locations) == len(self.cols)
+        err = [np.std(c) for c in self.cols]
+        means = [np.mean(c) for c in self.cols]
+        self.err_ax.errorbar(self.locations, means, yerr=err, ecolor="black")
+        self.err_ax.set_xbound( self.bar_ax.get_xbound() )
+        #for l,m,e in izip(self.locations, means, err):
+        #    self.err_ax.errorbar(l, m, yerr=e, ecolor="black")
+
+    def plot_barchart(self):
+        self.bar_ax.cla()
         assert len(self.limits) == self.n_bins + 1, "mismatch n_bins and limits"
-        locations = self.get_locations(self.limits)
-        width = self.get_width(locations, 0.8)
+        self.locations = self.get_locations(self.limits)
+        width = self.get_width(self.locations, 0.8)
         colormap = NiceColors.cmap
         bottom = [0] * self.n_bins
         for tgt, layer in self.get_layers():
             assert len(layer) == len(bottom)
             color = colormap(self.normalize(tgt, self.min_tgt, self.max_tgt))
-            ax.bar(locations, layer, width, color=color, bottom=bottom)
+            self.bar_ax.bar(self.locations, layer, width,
+                            color=color, bottom=bottom, linewidth=0,
+                            align='center')
             bottom = [b+c for b,c in zip(bottom, layer)]
-
-        #
-        #print data
-        #ax.cla()
-        #if self.equalize:
-        #    data = self.equalize_data(data)
-        #
-        #locations = (0-width/2, 1-width/2)    # the x locations for the groups
-        #
-        #
-        #if len(data) > 2:
-        #    #colormap = NiceColors.autumn
-        #    assert len(colormap) >= len(data), 'more classes that colors'
-        #    # colormap = NiceColors.twoclass
-        #
-        #for clsidx, counts in enumerate(data):
-        #    # color = colormap[clsidx]
-        #    color = colormap(clsidx)
-        #    if clsidx == 0:
-        #        ax.bar(locations, counts, width, color=color)
-        #    else:
-        #        bottoms = map(sum,zip(*data[:clsidx]))
-        #        ax.bar(locations, counts, width, color=color, bottom=bottoms)
 
         #ax.set_xticks((0.0,1.0))
         #ax.set_yticks([0,25,50,75,100],minor=False)
         #ax.yaxis.grid(True)
         #ax.set_xticklabels(('0', '1'))
         if self.equalize:
-            ax.set_ybound(lower=0.0, upper=1.0)
+            self.bar_ax.set_ybound(lower=0.0, upper=1.2)
 
     ### Signal Handling ###
     def on_window_destroy(self, widget, data=None):
@@ -217,7 +211,8 @@ class ColViewer:
         self.update_barchart()
 
     def read_target(self, filename):
-        self.target = map(int, map(float, open(filename)))
+        # self.target = map(int, map(float, open(filename)))
+        self.target = map(float, open(filename))
         self.n_classes = len(set(self.target))
         self.append_to_log("loaded target: %s lines containing %s classes"
                            %(len(self.target), self.n_classes))
@@ -244,7 +239,7 @@ class ColViewer:
             if val < bins[i+1]:
                 assert val >= bins[i]
                 return i
-        return nbins - 1
+        return nbins - 2
 
     def histogram(self):
         """ make histogram and update self.data with bin infos """
@@ -252,9 +247,12 @@ class ColViewer:
         self.n_bins = min(self.n_values, self.n_bins_desired)
         n, bins, patches = self.bar_ax.hist(self.raw_data, self.n_bins)
         self.col_counts = n
+        self.cols = [[] for c in range(self.n_bins)]
         for val, tgt in izip(self.raw_data, self.target):
             bin_id = self.find_bin(val, bins)
+            assert bin_id <= self.n_bins, "%s > %s" %(bin_id, self.n_bins)
             self.data[tgt].append((val, bin_id))
+            self.cols[bin_id].append(tgt)
         self.limits = bins
 
     def make_columns(self, nbins):
