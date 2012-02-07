@@ -63,9 +63,6 @@ class ColViewer:
         self.target_label = builder.get_object("label_target_filename")
 
         self.barchart_box = builder.get_object("box_barchart") # GtkVBox
-        #zeroCounts   = (0, 0)
-        #oneCounts    = (0, 0)
-        #self.data = [zeroCounts, oneCounts]
         self.init_barchart()
 
     ### GUI Tools ###
@@ -105,7 +102,6 @@ class ColViewer:
         self.bar_ax = ax
 
         self.err_ax = fig.add_subplot(212,axisbg=NiceColors.lightgrey)
-        #self.plot_barchart(data, ax)
 
         self.bar_canvas = FigureCanvas(fig)  # a gtk.DrawingArea
         self.bar_canvas.show()
@@ -220,7 +216,6 @@ class ColViewer:
         self.min_tgt = min(self.target)
         self.max_tgt = max(self.target)
 
-        #self.reset_data()
         # redo histogram if data already read
 
     def reset_data(self):
@@ -255,42 +250,8 @@ class ColViewer:
             self.cols[bin_id].append(tgt)
         self.limits = bins
 
-    def make_columns(self, nbins):
-        cols = []
-        for tgt in sorted(set(self.target)):
-            color = self.tgt2color[tgt]
-            bars = self.data[tgt]
-            cols.append(color, bars)
-
-        #for idx, val in enumerate(self.raw_data):
-        #    binidx = 1
-        #    while bins[binidx] < val:
-        #        binidx += 1
-        #        assert binidx < len(bins)
-        #    self.data[self.target[idx]][binidx-1] += 1
-        ## scale to percent
-        #factor = 100./len(self.raw_data)
-        #self.data = [[factor*val for val in d] for d in self.data]
-
-    def equalize_data(self, data, limit=100.):
-        heights = map(sum,zip(*data))
-        factors = [limit/height for height in heights]
-        return [[factor*val for factor,val in zip(factors,d)] for d in data]
-
     def normalize(self, value, min_val=0.0, max_val=1.0):
         return float(value-min_val)/(max_val-min_val)
-
-    def color_column(values, colormap, min_val=0.0, max_val=1.0):
-        """ values are targets for one column """
-        bottom = [0]
-        height = [0]
-        colors = [0]
-        counts = Counter(values)
-        for val, count in sorted(counts.items()):
-            bottom.append(bottom[-1] + count)
-            height.append(count)
-            colors.append(colormap(self.normalize(value, min_val, max_val)))
-        return zip(height, bottom, colors)
 
 if __name__ == "__main__":
     import argparse
