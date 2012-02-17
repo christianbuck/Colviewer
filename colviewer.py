@@ -142,6 +142,7 @@ class ColViewer:
         means = [np.mean(c) for c in self.cols]
         self.err_ax.errorbar(self.locations, means, yerr=err, ecolor="black")
         self.err_ax.set_xbound( self.bar_ax.get_xbound() )
+        self.err_ax.yaxis.grid(True)
         #for l,m,e in izip(self.locations, means, err):
         #    self.err_ax.errorbar(l, m, yerr=e, ecolor="black")
 
@@ -165,7 +166,7 @@ class ColViewer:
         #ax.yaxis.grid(True)
         #ax.set_xticklabels(('0', '1'))
         if self.equalize:
-            self.bar_ax.set_ybound(lower=0.0, upper=1.2)
+            self.bar_ax.set_ybound(lower=0.0, upper=1.05)
 
     ### Signal Handling ###
     def on_window_destroy(self, widget, data=None):
