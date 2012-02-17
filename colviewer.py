@@ -193,10 +193,10 @@ class ColViewer:
 
     def load_col(self, filename):
         fname = os.path.join(self.coldir, filename)
-        self.raw_data = map(float, open(fname))
+        self.raw_data = [float(l) for l in open(fname) if l.strip()]
         if len(self.raw_data) > len(self.target):
             sys.stdout.write("WARN: more data than targets (%s vs %s)\n"
-                             %(len(data), len(targets)))
+                             %(len(self.raw_data), len(self.target)))
             self.raw_data = self.raw_data[:len(self.target)]
         self.n_values = len(set(self.raw_data))
         self.data_binary = self.n_values == 2
